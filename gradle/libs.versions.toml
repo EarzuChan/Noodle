@@ -1,0 +1,57 @@
+[versions]
+agp = "8.12.3"
+
+android-compileSdk = "36"
+android-minSdk = "24"
+android-targetSdk = "36"
+
+androidx-activity = "1.12.2"
+androidx-appcompat = "1.7.1" # 安卓X APP兼容 版本：我们用稳定版，检查更新：https://developer.android.google.cn/jetpack/androidx/releases/appcompat
+androidx-core = "1.17.0"
+androidx-lifecycle = "2.9.6"
+composeHotReload = "1.0.0"
+composeMultiplatform = "1.10.0"
+
+kotlin = "2.3.0"
+kotlinx-coroutines = "1.10.2"
+ksp = "2.3.4"
+room = "2.8.4" # Room 版本：我们用稳定版（为了支持 Compose Multiplatform），检查更新：https://developer.android.google.cn/jetpack/androidx/releases/room
+dataStore = "1.2.0" # DataStore 版本：我们用稳定版（为了支持 Compose Multiplatform），检查更新：https://developer.android.google.cn/jetpack/androidx/releases/datastore
+
+cmp-darkModer = "0.7.4"
+decompose = "3.4.0" # Decompose 版本：我们用最新版，检查更新：https://arkivanov.github.io/Decompose/
+
+koin = "4.1.1" # Koin 版本：我们用最新版，检查更新：https://insert-koin.io/
+ktor = "3.3.3" # Ktor 版本：我们用MoodleFetcher兼容的版本，检查更新：https://ktor.io/
+jsoup = "1.22.1" # Jsoup 版本：我们用TeleFetcher兼容的版本，检查更新：https://jsoup.org/
+
+[libraries]
+androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidx-core" }
+androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "androidx-appcompat" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
+kotlinx-coroutinesSwing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
+
+cmp-darkModer = { module = "io.github.kdroidfilter:platformtools.darkmodedetector", version.ref = "cmp-darkModer" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
+androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "dataStore" }
+androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled" }
+decompose = { group = "com.arkivanov.decompose", name = "decompose", version.ref = "decompose" }
+decomposeExtCmp = { group = "com.arkivanov.decompose", name = "extensions-compose", version.ref = "decompose" }
+
+[plugins]
+androidApplication = { id = "com.android.application", version.ref = "agp" }
+androidLibrary = { id = "com.android.library", version.ref = "agp" }
+composeHotReload = { id = "org.jetbrains.compose.hot-reload", version.ref = "composeHotReload" }
+composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
+composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+room = { id = "androidx.room", version.ref = "room" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
