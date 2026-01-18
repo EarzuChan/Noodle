@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import lib.fetchmoodle.MoodleFetcher
 import lib.fetchmoodle.MoodleResult
+import me.earzuchan.noodle.data.preferences.AppPreferences
 import me.earzuchan.noodle.data.repositories.AppPreferenceRepository
 import me.earzuchan.noodle.ui.navis.AppNavis
 import me.earzuchan.noodle.utils.MiscUtils.ioDispatcherLaunch
@@ -28,8 +29,8 @@ class AppDuty(ctx: ComponentContext) : ComponentContext by ctx, KoinComponent {
 
     init {
         ioDispatcherLaunch {
-            combine(appPrefRepo.username, appPrefRepo.password) { user, pwd -> user to pwd }.collectLatest { (user, pwd) ->
-                val isValid = user.isNotEmpty() && pwd.isNotEmpty() && moodleFetcher.login(user, pwd) is MoodleResult.Success
+            combine(appPrefRepo.baseSite, appPrefRepo.username, appPrefRepo.password) { site, user, pwd -> Triple(site, user, pwd) }.collectLatest { (site, user, pwd) ->
+                val isValid = site.isNotEmpty() && user.isNotEmpty() && pwd.isNotEmpty() && moodleFetcher.login("https://$site", user, pwd) is MoodleResult.Success
 
                 mainDispatcherLaunch {
                     if (isValid) navigation.replaceAll(AppNavis.Main)
@@ -46,7 +47,7 @@ class AppDuty(ctx: ComponentContext) : ComponentContext by ctx, KoinComponent {
     private fun mapDuties(navi: AppNavis, subCtx: ComponentContext): ComponentContext = when (navi) {
         is AppNavis.Splash -> SplashDuty(subCtx)
 
-        is AppNavis.Main -> MainDuty(subCtx)
+        is AppNavis.Main -> MainDuty(subCtx) { navigation.replaceAll(AppNavis.Login) }
 
         is AppNavis.Login -> LoginDuty(subCtx) { navigation.replaceAll(AppNavis.Main) }
     }
@@ -54,8 +55,9 @@ class AppDuty(ctx: ComponentContext) : ComponentContext by ctx, KoinComponent {
 
 class SplashDuty(ctx: ComponentContext) : ComponentContext by ctx
 
-class MainDuty(ctx: ComponentContext) : ComponentContext by ctx, KoinComponent {
+class MainDuty(ctx: ComponentContext, val onLogout: () -> Unit) : ComponentContext by ctx, KoinComponent {
     private val moodleFetcher: MoodleFetcher by inject()
+    private val appPrefRepo: AppPreferenceRepository by inject()
 
     sealed interface UIState {
         object Loading : UIState
@@ -80,14 +82,28 @@ class MainDuty(ctx: ComponentContext) : ComponentContext by ctx, KoinComponent {
             }
         }
     }
-}
 
+    fun logout() {
+        moodleFetcher.clearSessionData()
+
+        ioDispatcherLaunch {
+            appPrefRepo.setBaseSite(AppPreferences.DEFAULT_BASE_SITE)
+            appPrefRepo.setUsername("")
+            appPrefRepo.setPassword("")
+
+            mainDispatcherLaunch {
+                onLogout()
+            }
+        }
+    }
+}
 
 class LoginDuty(ctx: ComponentContext, private val onLoginSuccess: () -> Unit) : ComponentContext by ctx, KoinComponent {
     private val moodleFetcher: MoodleFetcher by inject()
     private val appPrefRepo: AppPreferenceRepository by inject()
 
     // UI 状态
+    val baseSite = MutableStateFlow("")
     val username = MutableStateFlow("")
     val password = MutableStateFlow("")
     val errorMessage = MutableStateFlow<String?>(null)
@@ -95,17 +111,19 @@ class LoginDuty(ctx: ComponentContext, private val onLoginSuccess: () -> Unit) :
 
     init {
         ioDispatcherLaunch {
+            baseSite.value = appPrefRepo.baseSite.first()
             username.value = appPrefRepo.username.first()
             password.value = appPrefRepo.password.first()
         }
     }
 
     fun onLoginClick() {
+        val baseSite = baseSite.value
         val user = username.value
         val pwd = password.value
 
-        if (user.isBlank() || pwd.isBlank()) {
-            errorMessage.value = "用户名或密码不能为空"
+        if (baseSite.isBlank() || user.isBlank() || pwd.isBlank()) {
+            errorMessage.value = "站点、用户名、密码不能为空"
             return
         }
 
@@ -113,15 +131,16 @@ class LoginDuty(ctx: ComponentContext, private val onLoginSuccess: () -> Unit) :
             isLoading.value = true
             errorMessage.value = null
 
-            when (val result = moodleFetcher.login(user, pwd)) {
+            when (val result = moodleFetcher.login("https://$baseSite", user, pwd)) {
                 is MoodleResult.Success -> {
+                    appPrefRepo.setBaseSite(baseSite)
                     appPrefRepo.setUsername(user)
                     appPrefRepo.setPassword(pwd)
 
-                    mainDispatcherLaunch{ onLoginSuccess() }
+                    mainDispatcherLaunch { onLoginSuccess() }
                 }
 
-                is MoodleResult.Failure -> errorMessage.value = result.exception.message ?: "Unknown Error"
+                is MoodleResult.Failure -> errorMessage.value = "登录失败：" + (result.exception.message ?: "未知错误")
             }
 
             isLoading.value = false

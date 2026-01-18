@@ -12,10 +12,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import me.earzuchan.noodle.duties.LoginDuty
 import me.earzuchan.noodle.duties.MainDuty
+import me.earzuchan.noodle.utils.ResUtils.vector
+import noodle.composeapp.generated.resources.Res
+import noodle.composeapp.generated.resources.ic_logout_24px
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(duty: MainDuty) = Scaffold(topBar = { TopAppBar({ Text("目前只能看成绩") }) }) { padding ->
+fun MainScreen(duty: MainDuty) = Scaffold(topBar = {
+    TopAppBar({ Text("目前只能看成绩") }, actions = {
+        IconButton({ duty.logout() }) { Icon(Res.drawable.ic_logout_24px.vector, "退出登录") }
+    })
+}) { padding ->
     val state by duty.state.collectAsState()
 
     Box(Modifier.fillMaxSize().padding(padding)) {
@@ -39,12 +46,15 @@ fun MainScreen(duty: MainDuty) = Scaffold(topBar = { TopAppBar({ Text("目前只
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(duty: LoginDuty) = Scaffold(topBar = { TopAppBar({ Text("登录") }) }) { padding ->
+    val baseSite by duty.baseSite.collectAsState()
     val username by duty.username.collectAsState()
     val password by duty.password.collectAsState()
     val error by duty.errorMessage.collectAsState()
     val loading by duty.isLoading.collectAsState()
 
     LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        item { OutlinedTextField(baseSite, { duty.baseSite.value = it }, Modifier.fillMaxWidth(), label = { Text("站点域名") }) }
+
         item { OutlinedTextField(username, { duty.username.value = it }, Modifier.fillMaxWidth(), label = { Text("用户名") }) }
 
         item { OutlinedTextField(password, { duty.password.value = it }, Modifier.fillMaxWidth(), label = { Text("密码") }) }

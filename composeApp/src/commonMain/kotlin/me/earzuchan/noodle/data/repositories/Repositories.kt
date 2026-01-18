@@ -24,6 +24,9 @@ class AppPreferenceRepository {
 
     // --- 普通偏好项 ---
 
+    val baseSite: Flow<String> = getPreference(AppPreferences.KEY_BASE_SITE, AppPreferences.DEFAULT_BASE_SITE)
+    suspend fun setBaseSite(baseSite: String) = setPreference(AppPreferences.KEY_BASE_SITE, baseSite)
+
     val username: Flow<String> = getPreference(AppPreferences.KEY_USERNAME, "")
     suspend fun setUsername(password: String) = setPreference(AppPreferences.KEY_USERNAME, password)
 
