@@ -24,7 +24,7 @@ sealed class MainNavis {
     data object Course : MainNavis()
 
     @Serializable
-    data object User : MainNavis()
+    data object My : MainNavis()
 }
 
 @Serializable

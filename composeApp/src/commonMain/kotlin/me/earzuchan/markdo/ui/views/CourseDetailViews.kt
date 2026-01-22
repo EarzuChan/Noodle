@@ -17,6 +17,7 @@ import lib.fetchmoodle.CourseModuleAvailability
 import lib.fetchmoodle.SectionLike
 import me.earzuchan.markdo.duties.CourseDetailDuty
 import me.earzuchan.markdo.resources.*
+import me.earzuchan.markdo.ui.widgets.MIcon
 import me.earzuchan.markdo.utils.ResUtils.vector
 import org.jetbrains.compose.resources.DrawableResource
 
@@ -34,7 +35,7 @@ fun CourseDetailPage(duty: CourseDetailDuty) {
                     else -> "课程详情"
                 }
             )
-        }, navigationIcon = { IconButton({ duty.naviBack() }) { Icon(Res.drawable.ic_arrow_back_24px.vector, "返回") } })
+        }, navigationIcon = { IconButton({ duty.naviBack() }) { MIcon(Res.drawable.ic_arrow_back_24px) } })
     }) { padding ->
         val state by duty.state.collectAsState()
 
@@ -126,12 +127,12 @@ fun ResourceView(resource: CourseModule.Resource, onClick: (CourseModule.Resourc
         val info = listOfNotNull(resource.fileSize, resource.uploadDate, resource.availability?.description).joinToString(" · ")
         if (info.isNotBlank()) Text(info)
     },
-    leadingContent = { Icon(Res.drawable.ic_file_24px.vector, "文件", tint = MaterialTheme.colorScheme.primary) }, trailingContent = { resource.availability?.let { RestrictionBadge(it) } }
+    leadingContent = { MIcon(Res.drawable.ic_file_24px, MaterialTheme.colorScheme.primary) }, trailingContent = { resource.availability?.let { RestrictionBadge(it) } }
 )
 
 @Composable
 fun AssignmentView(assign: CourseModule.Assignment, onClick: () -> Unit) = ListItem(
-    { Text(assign.name) }, Modifier.clickable { onClick() }, leadingContent = { Icon(Res.drawable.ic_task_24px.vector, "作业", tint = MaterialTheme.colorScheme.tertiary) },
+    { Text(assign.name) }, Modifier.clickable { onClick() }, leadingContent = { MIcon(Res.drawable.ic_task_24px, MaterialTheme.colorScheme.tertiary) },
     supportingContent = { Text(listOfNotNull("开始日期：${assign.openDate}", "截止日期：${assign.dueDate}", assign.description).joinToString("\n"), color = MaterialTheme.colorScheme.error) }
 )
 
@@ -145,17 +146,17 @@ fun LabelView(label: CourseModule.Label) {
 
 @Composable
 fun SimpleModuleView(module: CourseModule, icon: DrawableResource, onClick: () -> Unit) = ListItem(
-    { Text(module.name) }, Modifier.clickable { onClick() }, leadingContent = { Icon(icon.vector, null) }
+    { Text(module.name) }, Modifier.clickable { onClick() }, leadingContent = { MIcon(icon) }
 )
 
 @Composable
 fun RestrictionBadge(availability: CourseModuleAvailability) {
-    if (availability.isRestricted) Icon(Res.drawable.ic_block_24px.vector, "受限")
+    if (availability.isRestricted) MIcon(Res.drawable.ic_block_24px)
 }
 
 @Composable
 fun QuizView(quiz: CourseModule.Quiz, onClick: () -> Unit) = ListItem(
-    { Text(quiz.name) }, Modifier.clickable { onClick() }, leadingContent = { Icon(Res.drawable.ic_quiz_24px.vector, "测试", tint = MaterialTheme.colorScheme.tertiary) },
+    { Text(quiz.name) }, Modifier.clickable { onClick() }, leadingContent = { MIcon(Res.drawable.ic_quiz_24px, MaterialTheme.colorScheme.tertiary) },
     supportingContent = { Text(listOfNotNull("开始日期：${quiz.openDate}", "截止日期：${quiz.closeDate}", quiz.description, quiz.availability?.description).joinToString("\n"), color = MaterialTheme.colorScheme.error) },
     trailingContent = { quiz.availability?.let { RestrictionBadge(it) } }
 )

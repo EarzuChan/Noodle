@@ -7,6 +7,8 @@ import com.arkivanov.decompose.router.stack.bringToFront
 import com.arkivanov.decompose.router.stack.childStack
 import com.arkivanov.decompose.router.stack.replaceAll
 import com.arkivanov.decompose.value.Value
+import com.arkivanov.essenty.backhandler.BackCallback
+import com.arkivanov.essenty.backhandler.BackHandler
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
@@ -17,17 +19,20 @@ import lib.fetchmoodle.MoodleCourseGrade
 import lib.fetchmoodle.MoodleCourseInfo
 import lib.fetchmoodle.MoodleFetcher
 import lib.fetchmoodle.MoodleResult
-import me.earzuchan.markdo.data.preferences.AppPreferences
 import me.earzuchan.markdo.data.repositories.AppPreferenceRepository
 import me.earzuchan.markdo.utils.MarkDoLog
 import me.earzuchan.markdo.utils.MiscUtils.ioDispatcherLaunch
 import me.earzuchan.markdo.utils.MiscUtils.mainDispatcherLaunch
+import me.earzuchan.markdo.utils.PlatformFunctions
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import java.time.LocalDateTime
 
 class AppDuty(ctx: ComponentContext) : ComponentContext by ctx, KoinComponent {
     val moodleFetcher: MoodleFetcher by inject()
     val appPrefRepo: AppPreferenceRepository by inject()
+
+    var lastBackTime: Long = 0L
 
     init {
         ioDispatcherLaunch {
@@ -40,6 +45,19 @@ class AppDuty(ctx: ComponentContext) : ComponentContext by ctx, KoinComponent {
                 }
             }
         }
+
+        backHandler.register(object : BackCallback() {
+            override fun onBack() {
+                val nowBackTime = System.currentTimeMillis() // 或者 SystemClock.elapsedRealtime()
+
+                if (nowBackTime - lastBackTime < 2000) PlatformFunctions.stopApp()
+                else {
+                    lastBackTime = nowBackTime
+
+                    // showToast("再按一次退出应用")
+                }
+            }
+        })
     }
 
     private val navigation = StackNavigation<AppNavis>()
@@ -76,14 +94,14 @@ class MainDuty(ctx: ComponentContext, val logout: () -> Unit) : ComponentContext
 
         is MainNavis.Course -> CourseDuty(subCtx)
 
-        is MainNavis.User -> UserDuty(subCtx, logout)
+        is MainNavis.My -> MyDuty(subCtx, logout)
     }
 
     fun naviGrades() = navigation.bringToFront(MainNavis.Grades)
 
     fun naviCourse() = navigation.bringToFront(MainNavis.Course)
 
-    fun naviUser() = navigation.bringToFront(MainNavis.User)
+    fun naviMy() = navigation.bringToFront(MainNavis.My)
 }
 
 class LoginDuty(ctx: ComponentContext, private val onLoginSuccess: () -> Unit) : ComponentContext by ctx, KoinComponent {
@@ -244,7 +262,7 @@ class CourseDetailDuty(ctx: ComponentContext, val courseId: Int, val naviBack: (
     }
 }
 
-class UserDuty(ctx: ComponentContext, val logout: () -> Unit) : ComponentContext by ctx, KoinComponent {
+class MyDuty(ctx: ComponentContext, val logout: () -> Unit) : ComponentContext by ctx, KoinComponent {
     val appPrefRepo: AppPreferenceRepository by inject()
 
     lateinit var userName: String
