@@ -1,7 +1,10 @@
 package me.earzuchan.markdo.services
 
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import lib.fetchmoodle.LoginFailure
 import lib.fetchmoodle.MoodleCourseInfo
@@ -17,6 +20,7 @@ import me.earzuchan.markdo.data.repositories.AccountRepository
 import me.earzuchan.markdo.data.repositories.DataCacheRepository
 import me.earzuchan.markdo.utils.MarkDoLog
 import me.earzuchan.markdo.utils.MiscUtils.ioDispatcherLaunch
+import me.earzuchan.markdo.utils.MiscUtils.ioDispatcherScope
 
 class MoodleService(
     private val moodleFetcher: MoodleFetcher,
@@ -34,6 +38,13 @@ class MoodleService(
         data object Main : BootstrapRoute
         data object SplashAndLogin : BootstrapRoute
         data object Login : BootstrapRoute
+    }
+
+    sealed interface LoginConnectionState {
+        data object Unknown : LoginConnectionState
+        data object Onlined : LoginConnectionState
+        data object Offlined : LoginConnectionState
+        data object Onlining : LoginConnectionState
     }
 
     val authState = MutableStateFlow<AuthState>(AuthState.Initial)
@@ -66,11 +77,14 @@ class MoodleService(
 
     val rememberedAccounts = MutableStateFlow<List<SavedLoginAccount>>(emptyList())
     val activeAccountKey = MutableStateFlow<String?>(null)
+    val loginConnectionState = MutableStateFlow<LoginConnectionState>(LoginConnectionState.Unknown)
 
     private var currentAccountKey: String? = null
+    private var retryLoginJob: Job? = null
 
     companion object {
         private const val TAG = "MoodleService"
+        private const val RETRY_LOGIN_INTERVAL_MS = 30_000L
 
         const val AUTH_MSG_NO_LOGIN_INFO = "缺少可用登录账号"
         const val AUTH_MSG_INVALID_CREDENTIALS = "账号或密码错误"
@@ -89,6 +103,7 @@ class MoodleService(
             onLogoutted()
             currentAccountKey = null
             activeAccountKey.value = null
+            markConnectionUnknown()
             return BootstrapRoute.Login
         }
 
@@ -97,6 +112,7 @@ class MoodleService(
             onLogoutted()
             currentAccountKey = null
             activeAccountKey.value = null
+            markConnectionUnknown()
             return BootstrapRoute.Login
         }
 
@@ -107,9 +123,11 @@ class MoodleService(
         return if (hasCacheForActive) {
             loadFromLocalCache(activeAccount.accountKey)
             settleStatesForOfflineView()
+            markOfflineCached()
             BootstrapRoute.Main
         } else {
             onLogoutted()
+            markConnectionUnknown()
             BootstrapRoute.SplashAndLogin
         }
     }
@@ -125,6 +143,7 @@ class MoodleService(
             currentAccountKey = null
             activeAccountKey.value = null
             onLogoutted()
+            markConnectionUnknown()
             authState.value = AuthState.Unauthed(AUTH_MSG_NO_LOGIN_INFO)
             return
         }
@@ -134,10 +153,12 @@ class MoodleService(
 
         val accountKey = activeAccount.accountKey
         val hasLocalCache = cacheRepo.hasAnyCacheForAccount(accountKey)
+        if (allowOfflineFallback && hasLocalCache) markOnlining()
 
         when (val result = moodleFetcher.login(activeAccount.baseSite.toBaseUrl(), activeAccount.username, activeAccount.password)) {
             is MoodleResult.Success -> {
                 onLoginned(accountKey, refreshRemote = true)
+                markOnline()
                 authState.value = AuthState.Authed
             }
 
@@ -151,6 +172,7 @@ class MoodleService(
                         activeAccountKey.value = null
                         refreshRememberedAccountState()
                         onLogoutted()
+                        markConnectionUnknown()
                         authState.value = AuthState.Unauthed(AUTH_MSG_INVALID_CREDENTIALS)
                     }
 
@@ -158,15 +180,18 @@ class MoodleService(
                         if (allowOfflineFallback && hasLocalCache) {
                             MarkDoLog.w(TAG, "自动登录网络失败，回落到缓存模式")
                             onLoginned(accountKey, refreshRemote = false)
+                            markOfflineCached()
                             authState.value = AuthState.Authed
                         } else {
                             onLogoutted()
+                            markConnectionUnknown()
                             authState.value = AuthState.Unauthed(AUTH_MSG_NETWORK)
                         }
                     }
 
                     is LoginFailureReason.Unknown -> {
                         onLogoutted()
+                        markConnectionUnknown()
                         authState.value = AuthState.Unauthed(reason.message ?: AUTH_MSG_UNKNOWN)
                     }
                 }
@@ -193,6 +218,7 @@ class MoodleService(
                 currentAccountKey = account.accountKey
                 refreshRememberedAccountState()
                 onLoginned(account.accountKey, refreshRemote = true)
+                markOnline()
                 authState.value = AuthState.Authed
             }
 
@@ -202,6 +228,7 @@ class MoodleService(
                     is LoginFailureReason.Network -> AuthState.Unauthed(AUTH_MSG_NETWORK)
                     is LoginFailureReason.Unknown -> AuthState.Unauthed(reason.message ?: AUTH_MSG_UNKNOWN)
                 }
+                markConnectionUnknown()
             }
         }
     }
@@ -218,6 +245,7 @@ class MoodleService(
         refreshRememberedAccountState()
 
         onLogoutted()
+        markConnectionUnknown()
         authState.value = AuthState.Unauthed(AUTH_MSG_USER_LOGOUT)
     }
 
@@ -248,8 +276,12 @@ class MoodleService(
             clearCourses()
             loadFromLocalCache(account.accountKey)
             settleStatesForOfflineView()
+            markOfflineCached()
             authState.value = AuthState.Authed
-        } else onLogoutted()
+        } else {
+            onLogoutted()
+            markConnectionUnknown()
+        }
 
         autoLogin(allowOfflineFallback = hasLocalCache)
     }
@@ -263,6 +295,13 @@ class MoodleService(
         refreshRememberedAccountState()
 
         return true
+    }
+
+    suspend fun retryLoginNow() {
+        if (authState.value !is AuthState.Authed) return
+
+        val hasLocalCache = resolveCurrentAccountKey()?.let { cacheRepo.hasAnyCacheForAccount(it) } ?: false
+        autoLogin(allowOfflineFallback = hasLocalCache)
     }
 
     private fun onLoginned(accountKey: String, refreshRemote: Boolean) {
@@ -430,6 +469,86 @@ class MoodleService(
         data object InvalidCredentials : LoginFailureReason
         data object Network : LoginFailureReason
         data class Unknown(val message: String?) : LoginFailureReason
+    }
+
+    private fun markOnline() {
+        loginConnectionState.value = LoginConnectionState.Onlined
+        stopRetryLoginLoop()
+    }
+
+    private fun markOfflineCached() {
+        loginConnectionState.value = LoginConnectionState.Offlined
+        startRetryLoginLoop()
+    }
+
+    private fun markOnlining() {
+        loginConnectionState.value = LoginConnectionState.Onlining
+    }
+
+    private fun markConnectionUnknown() {
+        loginConnectionState.value = LoginConnectionState.Unknown
+        stopRetryLoginLoop()
+    }
+
+    private fun startRetryLoginLoop() {
+        if (retryLoginJob?.isActive == true) return
+
+        retryLoginJob = ioDispatcherScope.launch {
+            while (isActive) {
+                delay(RETRY_LOGIN_INTERVAL_MS)
+
+                if (loginConnectionState.value != LoginConnectionState.Offlined) continue
+                if (authState.value !is AuthState.Authed) continue
+
+                retryLoginInBackground()
+            }
+        }
+    }
+
+    private fun stopRetryLoginLoop() {
+        retryLoginJob?.cancel()
+        retryLoginJob = null
+    }
+
+    private suspend fun retryLoginInBackground() {
+        val activeAccount = accountRepo.getActiveAccount() ?: run {
+            markConnectionUnknown()
+            return
+        }
+
+        markOnlining()
+
+        when (val result = moodleFetcher.login(activeAccount.baseSite.toBaseUrl(), activeAccount.username, activeAccount.password)) {
+            is MoodleResult.Success -> {
+                currentAccountKey = activeAccount.accountKey
+                onLoginned(activeAccount.accountKey, refreshRemote = true)
+                authState.value = AuthState.Authed
+                markOnline()
+            }
+
+            is MoodleResult.Failure -> {
+                when (val reason = resolveLoginFailure(result.exception)) {
+                    is LoginFailureReason.InvalidCredentials -> {
+                        moodleFetcher.clearSessionData()
+                        cacheRepo.clearAccountCaches(activeAccount.accountKey)
+                        accountRepo.clearActiveAccount()
+                        currentAccountKey = null
+                        activeAccountKey.value = null
+                        refreshRememberedAccountState()
+                        onLogoutted()
+                        markConnectionUnknown()
+                        authState.value = AuthState.Unauthed(AUTH_MSG_INVALID_CREDENTIALS)
+                    }
+
+                    is LoginFailureReason.Network -> markOfflineCached()
+
+                    is LoginFailureReason.Unknown -> {
+                        MarkDoLog.w(TAG, "后台重登录失败：${reason.message}")
+                        markOfflineCached()
+                    }
+                }
+            }
+        }
     }
 
     private suspend fun refreshRememberedAccountState() {

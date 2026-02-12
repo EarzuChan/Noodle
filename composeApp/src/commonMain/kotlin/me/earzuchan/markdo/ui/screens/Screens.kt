@@ -115,7 +115,7 @@ fun LoginScreen(duty: LoginDuty) = Scaffold(topBar = { TopAppBar({ Text(Res.stri
                             Text(account.baseSite, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
 
-                        TextButton({ pendingDelete = account }) {
+                        TextButton({ pendingDelete = account }, enabled = !disableButton) {
                             Text(Res.string.delete_account.t, color = MaterialTheme.colorScheme.error)
                         }
                     }

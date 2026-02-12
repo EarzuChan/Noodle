@@ -9,7 +9,7 @@ import java.util.Date
 // 版本代码是yyyyMMdd动态生成
 val verCode = SimpleDateFormat("yyyyMMdd").format(Date()).toInt()
 // 当实现计划时记得撞♂版本号
-val verName = "1.0.2"
+val verName = "1.1.0"
 // 包名
 val appId = "me.earzuchan.markdo"
 val appName = "MarkDo"

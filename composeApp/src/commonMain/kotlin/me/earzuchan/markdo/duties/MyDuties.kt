@@ -33,6 +33,7 @@ class MyDuty(ctx: ComponentContext) : ComponentContext by ctx, KoinComponent, IC
     val moodleService: MoodleService by inject()
 
     fun logout() = ioDispatcherLaunch { moodleService.logout() }
+    fun retryLogin() = ioDispatcherLaunch { moodleService.retryLoginNow() }
 
     fun switchAccount(accountKey: String) = ioDispatcherLaunch {
         if (switchingAccount.value || activeAccountKey.value == accountKey) return@ioDispatcherLaunch
@@ -62,6 +63,7 @@ class MyDuty(ctx: ComponentContext) : ComponentContext by ctx, KoinComponent, IC
     val rememberedAccounts = MutableStateFlow<List<SavedLoginAccount>>(emptyList())
     val activeAccountKey = MutableStateFlow<String?>(null)
     val switchingAccount = MutableStateFlow(false)
+    val loginConnectionState = moodleService.loginConnectionState
 
     init {
         ioDispatcherLaunch {

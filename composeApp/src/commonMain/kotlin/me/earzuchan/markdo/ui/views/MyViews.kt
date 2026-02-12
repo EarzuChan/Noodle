@@ -18,6 +18,7 @@ import me.earzuchan.markdo.duties.GradesDuty
 import me.earzuchan.markdo.duties.MyDuty
 import me.earzuchan.markdo.duties.SettingsDuty
 import me.earzuchan.markdo.resources.*
+import me.earzuchan.markdo.services.MoodleService
 import me.earzuchan.markdo.ui.models.DialogActionItem
 import me.earzuchan.markdo.ui.widgets.MIcon
 import me.earzuchan.markdo.utils.ResUtils.t
@@ -48,6 +49,13 @@ fun OverviewPage(duty: MyDuty) = Scaffold(topBar = {
     val rememberedAccounts by duty.rememberedAccounts.collectAsState()
     val activeAccountKey by duty.activeAccountKey.collectAsState()
     val switchingAccount by duty.switchingAccount.collectAsState()
+    val connectionState by duty.loginConnectionState.collectAsState()
+    val loginStatusText = when (connectionState) {
+        is MoodleService.LoginConnectionState.Onlined -> Res.string.login_status_online.t
+        is MoodleService.LoginConnectionState.Offlined -> Res.string.login_status_offline_cached.t
+        is MoodleService.LoginConnectionState.Onlining -> Res.string.login_status_onlining.t
+        is MoodleService.LoginConnectionState.Unknown -> Res.string.login_status_unknown.t
+    }
 
     if (showWhetherLogout) MAlertDialog(
         Res.string.sure_logout.t,
@@ -98,8 +106,8 @@ fun OverviewPage(duty: MyDuty) = Scaffold(topBar = {
             Text(userName, Modifier.padding(16.dp).fillMaxWidth(), MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
         }
 
-        item("hello") {
-            Text(Res.string.hello.t, Modifier.padding(bottom = 16.dp).fillMaxWidth(), MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+        item("login_status") {
+            Text(loginStatusText, Modifier.padding(bottom = 16.dp).fillMaxWidth(), MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
         }
 
         item("grades") {
@@ -120,6 +128,14 @@ fun OverviewPage(duty: MyDuty) = Scaffold(topBar = {
 
         if (rememberedAccounts.size > 1) item("account_switch") {
             ListItem({ Text(Res.string.account_switch.t) }, Modifier.clickable { showSwitchAccountDialog = true }, leadingContent = { MIcon(Res.drawable.ic_switch_account_24px) })
+        }
+
+        if (connectionState is MoodleService.LoginConnectionState.Offlined) item("relogin") {
+            ListItem(
+                { Text(Res.string.relogin.t) },
+                Modifier.clickable { duty.retryLogin() },
+                leadingContent = { MIcon(Res.drawable.ic_refresh_24px) }
+            )
         }
 
         item("logout") {

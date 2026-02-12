@@ -39,4 +39,9 @@
     <string name="delete_account">删除</string>
     <string name="confirm_delete_account">确定删除该账号？</string>
     <string name="delete_account_desc">删除后该账号缓存数据也会被清除：</string>
+    <string name="login_status_online">在线</string>
+    <string name="login_status_offline_cached">离线</string>
+    <string name="login_status_onlining">登录中</string>
+    <string name="login_status_unknown">未知</string>
+    <string name="relogin">上线</string>
 </resources>
