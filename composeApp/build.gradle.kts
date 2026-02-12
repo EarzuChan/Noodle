@@ -9,7 +9,7 @@ import java.util.Date
 // 版本代码是yyyyMMdd动态生成
 val verCode = SimpleDateFormat("yyyyMMdd").format(Date()).toInt()
 // 当实现计划时记得撞♂版本号
-val verName = "1.1.0"
+val verName = "1.1.1"
 // 包名
 val appId = "me.earzuchan.markdo"
 val appName = "MarkDo"
@@ -66,13 +66,7 @@ kotlin {
             implementation(libs.androidx.datastore.preferences)
             implementation(libs.kotlinx.serialization.json)
 
-            // HACK：这个主要是为了加载FetchMoodle库（无内联依赖的版本），你自行构建
-            implementation(fileTree("exLibs"))
-
-            implementation(libs.jsoup)
-
-            implementation(libs.ktor.client.core)
-            implementation(libs.ktor.client.cio)
+            implementation(libs.fetchMoodle)
 
             implementation(libs.decompose)
             implementation(libs.decomposeExtCmp)
